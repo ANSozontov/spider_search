@@ -16,13 +16,9 @@ cc <- function(){
 
 server <- function(input, output, session) {
     
-    # values <- reactiveValues(
-    #     
-    # )
-    
     observeEvent(input$search_run, {
         conditions <- character()
-        
+        browser()
         # year
         if(is.null(input$year1) || is.na(input$year1)){
             if(is.null(input$year2) || is.na(input$year2)){
