@@ -23,7 +23,7 @@ server <- function(input, output, session) {
         conditions <- character()
         
         # year
-        if(is.null(input$year1) || is.na(input$sql_year1)){
+        if(is.null(input$sql_year1) || is.na(input$sql_year1)){
             if(is.null(input$sql_year2) || is.na(input$sql_year2)){
                 year_query <- " "
             } else {
@@ -112,7 +112,7 @@ server <- function(input, output, session) {
                              str_squish(input$sql_province), perl = TRUE) == TRUE){
                 idx <- grep(str_squish(input$sql_province), adm_dict$region, ignore.case = TRUE)
                 if (length(idx) > 0) {
-                    prov_query <- paste0("staterovince  ILIKE '%",
+                    prov_query <- paste0("stateprovince  ILIKE '%",
                                          adm_dict$en_region[idx[1]],"%'" ) 
                 } else {
                     prov_query <- " "
@@ -128,10 +128,10 @@ server <- function(input, output, session) {
             if (input$sql_females == TRUE) {
                 sex_query <- " "
             } else {
-                sex_query <- "sex = 'male'"
+                sex_query <- " (sex ilike 'male%' OR sex ilike '% male%')"
             }
         } else if(input$sql_females == TRUE){
-            sex_query <- "sex = 'female'"  
+            sex_query <- "sex ilike '%female%'"  
         }  else { 
             sex_query <- " "
         }
@@ -142,10 +142,10 @@ server <- function(input, output, session) {
             if (input$sql_juv == TRUE) {
                 lifestage_query <- " "
             } else {
-                lifestage_query <- "lifestage = 'adult'"
+                lifestage_query <- "lifestage ilike '%ad%'"
             }
         } else if(input$sql_juv == TRUE){
-            lifestage_query <- "lifestage = 'juvenile'"  
+            lifestage_query <- "lifestage ilike '%juv%'"  
         } else { 
             lifestage_query <- " "
         }
