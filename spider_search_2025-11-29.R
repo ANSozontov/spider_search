@@ -180,7 +180,7 @@ server <- function(input, output, session) {
             if (!is.null(input$sql_sp) &&
                 !is.na(input$sql_sp) &&
                 nchar(str_squish(input$sql_sp)) > 1) {
-                sp_query <- paste0("\"scientificName\" ILIKE '%",str_squish(input$sql_sp),"%'" )
+                sp_query <- paste0("scientificname ILIKE '%",str_squish(input$sql_sp),"%'" )
             } else {
                 sp_query <- " "
             }}
@@ -201,12 +201,12 @@ server <- function(input, output, session) {
                     if(is.null(input$sql_lat2) || is.na(input$sql_lat2)){
                         lat_query <- " "
                     } else {
-                        lat_query <- paste0(" \"decimalLatitude\" <= ", input$sql_lat2) 
+                        lat_query <- paste0(" decimallatitude <= ", input$sql_lat2) 
                     }
                 } else if(is.null(input$sql_lat2) || is.na(input$sql_lat2)){
-                    lat_query <- paste0(" \"decimalLatitude\" >= ", input$sql_lat1)   
+                    lat_query <- paste0(" decimallatitude >= ", input$sql_lat1)   
                 } else {
-                    lat_query <- paste0(" \"decimalLatitude\" BETWEEN ", min(c(input$sql_lat1, input$sql_lat2)), 
+                    lat_query <- paste0(" decimallatitude BETWEEN ", min(c(input$sql_lat1, input$sql_lat2)), 
                                         " AND ",  max(c(input$sql_lat1, input$sql_lat2)))
                 } 
                 
@@ -216,12 +216,12 @@ server <- function(input, output, session) {
                     if(is.null(input$lon2) || is.na(input$lon2)){
                         lon_query <- " "
                     } else {
-                        lon_query <- paste0(" \"decimalLongitude\" <= ", input$lon2) 
+                        lon_query <- paste0(" decimallongitude <= ", input$lon2) 
                     }
                 } else if(is.null(input$lon2) || is.na(input$lon2)){
-                    lon_query <- paste0(" \"decimalLongitude\" >= ", input$lon1)   
+                    lon_query <- paste0(" decimallongitude >= ", input$lon1)   
                 } else {
-                    lon_query <- paste0(" \"decimalLongitude\" BETWEEN ", min(c(input$lon1, input$lon2)), 
+                    lon_query <- paste0(" decimallongitude BETWEEN ", min(c(input$lon1, input$lon2)), 
                                         " AND ",  max(c(input$lon1, input$lon2)))
                 }
             } else {
@@ -278,10 +278,10 @@ server <- function(input, output, session) {
                 if (input$sql_juv == TRUE) {
                     lifestage_query <- " "
                 } else {
-                    lifestage_query <- "\"lifeStage\" ilike '%ad%'"
+                    lifestage_query <- "lifestage ilike '%ad%'"
                 }
             } else if(input$sql_juv == TRUE){
-                lifestage_query <- "\"lifeStage\" ilike '%juv%'"  
+                lifestage_query <- "lifestage ilike '%juv%'"  
             } else { 
                 lifestage_query <- " "
             }
