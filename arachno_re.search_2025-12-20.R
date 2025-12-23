@@ -9,13 +9,35 @@ cc <- function(){
               dbname = "rnf_db", # your database
               host = "localhost", 
               port = "5432",
-              user = "rnf_app", # your user
-              password = readLines("/var/sec/rnf_app.pass") # <- put paswd to this file
+              user = "spi_search", # your user
+              password = readLines("/var/sec/spi_search.pass") # <- put paswd to this file
     )
 }
-adm_dict <- readxl::read_excel("adm_list_2025-03-17.xlsx")
-tax_list <- readxl::read_excel("wsc_list_2025-08-08.xlsx") %>% 
+adm_dict <- readxl::read_excel("srv/adm_list_2025-03-17.xlsx")
+tax_list <- readxl::read_excel("srv/wsc_list_2025-08-08.xlsx") %>% 
     mutate (scientificname = paste0(genus, " ", species), .before = 6)
+
+# taxa values
+{
+    con <- cc()
+    tax_names <- dbGetQuery(con, "SELECT DISTINCT(scientificname)  FROM spiders where taxonrank ilike '%species%';") %>% 
+        as_tibble() %>% 
+        separate(1, into = c("g", "s"), sep = " ", extra = "drop") %>% 
+        transmute(sp = paste0(g, " ", s)) %>% 
+        pull(1) %>% 
+        unique() %>% 
+        sort()
+    dbDisconnect(con)
+        
+        
+        # tax_gen.names <- c(tax_names, pull(dbGetQuery(con, "select distinct(genus) from spiders;"), 1))
+        
+        # tax_names <- dbGetQuery(con, "SELECT DISTINCT taxonrank, verbatimidentification, genus, scientificname  FROM spiders;")
+        # pull(1) 
+        # c(tax_names, )
+    # tax_names <- c(tax_names, pull(dbGetQuery(con, "select distinct() from spiders;"), 1))
+}
+
 # tax_dict
 vcenter <- "/* Center the numeric input container vertically */
       .center-numeric {
@@ -55,45 +77,42 @@ server <- function(input, output, session) {
         selectInput(
             "sql_fam", 
             label = NULL, 
-            choices = c("", unique(tax_list$family)),
+            choices = c("", unique(tax_list$family))
             # selected = NULL,
             # multiple = TRUE,
-            selectize = TRUE
+            # selectize = TRUE
             )
     })
     
-    # output$box_gen <- renderUI({
-    #     selectInput(
-    #         "sql_gen", 
-    #         label = "Род", 
-    #         choices = c("", unique(tax_list$genus)),
-    #         # selected = NULL,
-    #         # multiple = TRUE,
-    #         selectize = TRUE
-    #     )
-    # })
- 
-    # output$box_spec <- renderUI({
-    #     selectInput(
-    #         "sql_sp", 
-    #         label = "Вид", 
-    #         choices = c("", unique(tax_list$species)),
-    #         # selected = NULL,
-    #         # multiple = TRUE,
-    #         selectize = TRUE
-    #     )
-    # })
+    observeEvent(input$sql_sp, {  
+        updateSelectizeInput(session, 'sql_sp', choices = c("", tax_names), server = TRUE)
+    }, once = TRUE)
     
+    # new way species
     output$box_scname <- renderUI({
-        selectInput(
+        selectizeInput(
             "sql_sp",
             label = NULL,
-            choices = c("", unique(tax_list$scientificname)),
+            choices = NULL,
             # selected = NULL,
             # multiple = TRUE,
-            selectize = TRUE
+            # selectize = TRUE
         )
     })
+    
+    
+    
+    # old way species
+    # output$box_scname <- renderUI({
+    #     selectInput(
+    #         "sql_sp",
+    #         label = NULL,
+    #         choices = c("", unique(tax_list$scientificname)),
+    #         # selected = NULL,
+    #         # multiple = TRUE,
+    #         selectize = TRUE
+    #     )
+    # })
     
     output$box_region <- renderUI({
         selectInput(
@@ -152,8 +171,17 @@ server <- function(input, output, session) {
         } else if(is.null(input$sql_year2) || is.na(input$sql_year2)){
             year_query <- paste0(" year >= ", input$sql_year1)   
         } else {
-            year_query <- paste0(" year BETWEEN ", min(c(input$sql_year1, input$sql_year2)), 
-                                 " AND ",  max(c(input$sql_year1, input$sql_year2)))
+            if(input$sql_year1 == 1770 && input$sql_year2 == 2025) {
+                year_query <- " "
+            } else if(input$sql_year1 == 1770){
+                year_query <- paste0(" year <= ", input$sql_year2) 
+            } else if(input$sql_year2 == 2025){
+                year_query <- paste0(" year >= ", input$sql_year1)
+            } else {
+                year_query <- paste0(" year BETWEEN ", min(c(input$sql_year1, input$sql_year2)), 
+                                     " AND ",  max(c(input$sql_year1, input$sql_year2)))    
+            }
+            
         } }
         conditions <- c(conditions, year_query)
         
@@ -180,7 +208,7 @@ server <- function(input, output, session) {
             if (!is.null(input$sql_sp) &&
                 !is.na(input$sql_sp) &&
                 nchar(str_squish(input$sql_sp)) > 1) {
-                sp_query <- paste0("scientificname ILIKE '%",str_squish(input$sql_sp),"%'" )
+                sp_query <- paste0("scientificname ILIKE '%", str_squish(input$sql_sp),"%'" )
             } else {
                 sp_query <- " "
             }}
@@ -196,12 +224,18 @@ server <- function(input, output, session) {
                 # Не выполнять вообще никакого поиска 
                 # если поля для координат заполнены значениями по умолчанию
                 
+                
+                
                 #latcoord
                 if(is.null(input$sql_lat1) || is.na(input$sql_lat1)){
                     if(is.null(input$sql_lat2) || is.na(input$sql_lat2)){
                         lat_query <- " "
                     } else {
-                        lat_query <- paste0(" decimallatitude <= ", input$sql_lat2) 
+                        # if(input$sql_lat2 == 180){
+                        #     lat_query <- " decimallatitude IS NOT NULL"
+                        # } else {
+                            lat_query <- paste0(" decimallatitude <= ", input$sql_lat2) 
+                        # }
                     }
                 } else if(is.null(input$sql_lat2) || is.na(input$sql_lat2)){
                     lat_query <- paste0(" decimallatitude >= ", input$sql_lat1)   
@@ -224,6 +258,7 @@ server <- function(input, output, session) {
                     lon_query <- paste0(" decimallongitude BETWEEN ", min(c(input$lon1, input$lon2)), 
                                         " AND ",  max(c(input$lon1, input$lon2)))
                 }
+                
             } else {
                 lat_query <- " "
                 lat_query <- " "
@@ -293,17 +328,18 @@ server <- function(input, output, session) {
         # drop empty conditions
         conditions <- conditions[conditions != " "]
         
-        query <- paste0("SELECT * FROM spiders_test WHERE ", 
+        query <- paste0("SELECT * FROM spiders WHERE ", 
                         paste0(conditions, collapse = " AND "), 
                         ";")
         values$last_query <- str_squish(query) %>%
             str_replace("WHERE AND", "WHERE") %>%
+            str_replace("WHERE ;", " ;") %>%
             gsub("(AND\\s+)+", "AND ", .)
         
         showNotification(values$last_query, duration = 10, type = "message")
         
         con <- cc()
-        # r2 <- dbGetQuery(con, "SELECT * FROM spiders_test;")  %>% rename_with(tolower) %>% as_tibble() %>% select (scientificname)
+        # r2 <- dbGetQuery(con, "SELECT * FROM spiders;")  %>% rename_with(tolower) %>% as_tibble() %>% select (scientificname)
         values$last_table <- dbGetQuery(con, values$last_query) %>% 
             rename_with(tolower)
         # result <- dbGetQuery(con, values$last_query) # %>% as_tibble()
@@ -343,7 +379,43 @@ server <- function(input, output, session) {
             output$download_block <- NULL
             
             shinyalert::shinyalert(title = "Не найдено", text = "", type = "warning")
+        } else if(nrow(values$last_table)>2000){
+            output$results_table <- DT::renderDataTable({
+                tibble(`Результаты поиска:` = c(
+                    nrow(values$last_table), 
+                    "Более 2000 находок отобразить не получится", 
+                    "(Но вы все равно можете скачать их в виде файла и изучить самостоятельно)",
+                    "Пожалуйста, конкретизируйте условия поиска"))
+            }, escape = FALSE)
+            
+            output$download_block <- renderUI({tagList(
+                HTML("<h4 style='text-align: center;'>Скачать найденное</h4>"),
+                fluidRow(
+                    column(
+                        6,
+                        downloadButton(
+                            "download_xls", label = "Excel", style = "width:100%;"
+                        ),
+                    ),
+                    column(
+                        6, 
+                        downloadButton(
+                            "download_tsv", label = "tsv", style = "width:100%;"
+                        ),
+                    )
+                ),
+            )})
+            
+            shinyalert::shinyalert(
+                title = paste0(nrow(values$last_table), " записей найдено"), 
+                text = "Более 2000 находок отобразить не получится.
+\n(Но вы все равно можете скачать их в виде файла и изучить самостоятельно)
+\nПожалуйста, конкретизируйте условия поиска.", 
+                type = "info")
         } else {
+            # prepare short_ref and URL links
+            # ...
+            
             output$results_table <- DT::renderDataTable({
                 values$last_table %>% 
                     mutate(y = str_extract(bibliographiccitation, "[:digit:]{4}")) %>% 
@@ -375,9 +447,10 @@ server <- function(input, output, session) {
                         Страна = countrycode, # country
                         Регион = stateprovince,
                         Место = locality,
-                        `N & E` = paste0(
-                            round(decimallatitude,  1), "N, ",
-                            round(decimallongitude, 1), "E"
+                        `N & E` = case_when(
+                            !is.na(decimallatitude) & !is.na(decimallongitude) ~ 
+                                paste0(round(decimallatitude,  1), "N, ", round(decimallongitude, 1), "E"),
+                            TRUE ~ "–"
                         ),
                         Дата = eventdate,
                         Биотоп = habitat,
@@ -417,7 +490,9 @@ server <- function(input, output, session) {
             paste0("result_", format(Sys.time(), "%d-%m-%Y_%Hh%Mm"), ".xlsx")
         },
         content = function(file) {
-            writexl::write_xlsx(values$last_table, path = file)
+            values$last_table
+            select(-remove, -publ_id, -vol_ids) %>% 
+            writexl::write_xlsx(path = file)
             
         }
     )}
@@ -427,8 +502,10 @@ server <- function(input, output, session) {
             paste0("result_", format(Sys.time(), "%d-%m-%Y_%Hh%Mm"), ".tsv")
         },
         content = function(file) {
+            values$last_table
+            select(-remove, -publ_id, -vol_ids) %>% 
             readr::write_delim(
-                values$last_table,
+                .,
                 file = file, 
                 delim = "\t", 
                 na = ""
@@ -564,3 +641,26 @@ shinyApp(ui = ui,
          }, 
          options = list(port = 3333, host = "0.0.0.0", launch.browser = F)
 )
+
+
+# output$box_gen <- renderUI({
+#     selectInput(
+#         "sql_gen", 
+#         label = "Род", 
+#         choices = c("", unique(tax_list$genus)),
+#         # selected = NULL,
+#         # multiple = TRUE,
+#         selectize = TRUE
+#     )
+# })
+
+# output$box_spec <- renderUI({
+#     selectInput(
+#         "sql_sp", 
+#         label = "Вид", 
+#         choices = c("", unique(tax_list$species)),
+#         # selected = NULL,
+#         # multiple = TRUE,
+#         selectize = TRUE
+#     )
+# })
